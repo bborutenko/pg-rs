@@ -1,7 +1,7 @@
 use std::{io::Result, net::TcpStream};
 use std::io::Write;
 use crate::protocol::conn_params::ConnParams;
-use crate::protocol::buffer::Buffer;
+use crate::protocol::messages::StartupMessage;
 
 pub struct Connection {
     stream: TcpStream,
