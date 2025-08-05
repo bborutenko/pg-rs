@@ -125,7 +125,7 @@ impl<'a> ConnParamsBuilder<'a> {
 }
 
 #[cfg(test)]
-mod conn_params_tests {
+mod tests {
     use super::*;
 
     #[test]

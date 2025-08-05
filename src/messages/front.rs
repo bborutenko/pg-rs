@@ -1,11 +1,10 @@
 #[repr(u8)]
 pub enum MessageType {
-    StartupMessage,
     QueryMessage,
 }
 
 pub trait FrontendMessage {
-    fn message(&mut self) -> &Vec<u8>;
+    fn to_vecu8(&mut self) -> &Vec<u8>;
 }
 
 pub struct StartupMessage {
@@ -20,11 +19,14 @@ pub struct QueryMessage {
 }
 
 impl StartupMessage {
-    pub fn new(user: &str, database: &str) -> StartupMessage {
+    pub(in crate::messages) fn new(
+        user: &str, database: &str
+    ) -> StartupMessage {
         let mut message: Vec<u8> = Vec::new();
 
-        init_message(&mut message, MessageType::StartupMessage);
-
+        message.extend(&0_i32.to_be_bytes());
+        message.extend(&196608_i32.to_be_bytes());
+        
         StartupMessage {
             user: user.to_string(),
             database: database.to_string(),
@@ -34,19 +36,25 @@ impl StartupMessage {
 }
 
 impl FrontendMessage for StartupMessage {
-    fn message(&mut self) -> &Vec<u8> {
+    fn to_vecu8(&mut self) -> &Vec<u8> {
         add_bytes(&mut self.message, "user");
+        add_bytes(&mut self.message, "\0");
         add_bytes(&mut self.message, &self.user);
-        add_bytes(&mut self.message, "database");   
+        add_bytes(&mut self.message, "\0");
+        add_bytes(&mut self.message, "database");
+        add_bytes(&mut self.message, "\0");   
         add_bytes(&mut self.message, &self.database);
-        change_len(&mut self.message);  
+        self.message.extend(b"\0\0");
+          
+        let len = self.message.len() as i32;
+        self.message[..4].copy_from_slice(&len.to_be_bytes());
 
         &self.message   
     }
 }
 
 impl QueryMessage {
-    pub fn new(query: &str) -> QueryMessage {
+    pub(in crate::messages) fn new(query: &str) -> QueryMessage {
         let mut message: Vec<u8> = Vec::new(); 
 
         init_message(&mut message, MessageType::QueryMessage);
@@ -58,33 +66,33 @@ impl QueryMessage {
     }
 }
 
+impl FrontendMessage for QueryMessage {
+    fn to_vecu8(&mut self) -> &Vec<u8> {
+        add_bytes(&mut self.message, &self.query);
+        self.message.extend(b"\0");
+
+        change_len(&mut self.message);
+        &self.message
+    }
+}
+
 fn init_message(
     mess: &mut Vec<u8>, message_type: MessageType
-) -> Result<(), &str> {
-    if let MessageType::StartupMessage = message_type {
-        mess.extend(&0_i32.to_be_bytes());
-        mess.extend(&196608_i32.to_be_bytes());
-        return Ok(())
-    } 
+) {
 
-    let byte_type = match message_type {
+    mess.push(match message_type {
         MessageType::QueryMessage => b'Q',
-        _ => return Err("Unsupported message type.")
-    };
-
-    mess.extend(byte_type.to_be_bytes());
+    });
     mess.extend(&0_i32.to_be_bytes());
-    Ok(())
 }
 
 fn add_bytes(mess: &mut Vec<u8>, value: &str) { 
     mess.extend(value.as_bytes());
-    mess.extend(b"\0");
 }
 
 fn change_len(mess: &mut Vec<u8>) {
-        let len = mess.len();
-        mess[..4].copy_from_slice(&len.to_be_bytes());
+    let len = (mess.len() - 1) as i32;
+    mess[1..5].copy_from_slice(&len.to_be_bytes());
 }
 
 #[cfg(test)]
@@ -92,39 +100,69 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new() {
-        let mut buf = Buffer::new();
-        let test_message = buf.message();
-        let mut expected_message = Vec::new();
-        expected_message.extend(
-            &9_i32.to_be_bytes()
-        );
-        expected_message.extend(
-            &196608_i32.to_be_bytes()
-        );
-        expected_message.extend(b"\0");
+    fn test_query_to_vecu8() {
+        let mut test_message = QueryMessage::new("SELECT 1;");
+
+        let mut expected_message: Vec<u8> = Vec::new();
         
+        expected_message.push(b'Q');
+
+        expected_message.extend(
+            &14_i32.to_be_bytes()
+        );
+        expected_message.extend(b"SELECT 1;\0"); 
+
         assert_eq!(
-            test_message,
+            *test_message.to_vecu8(),
             expected_message
         );
     }
 
     #[test]
-    fn test_auth_message() {
-        let mut buf = Buffer::new();
+    fn test_startup_to_vecu8() {
+        let mut test_message = StartupMessage::new("postgres", "postgres");
 
-        let test_message = buf.auth_message("postgres", "postgres");
-        
-        let mut expected_message = Vec::new();
+        let mut expected_message: Vec<u8> = Vec::new();
+
         expected_message.extend(
-            &9_i32.to_be_bytes()
+            &41_i32.to_be_bytes()
         );
         expected_message.extend(
             &196608_i32.to_be_bytes()
         );
-        
+
         expected_message.extend(b"user\0postgres\0database\0postgres\0\0");
+
+        assert_eq!(
+            *test_message.to_vecu8(),
+            expected_message
+        );
+    }
+
+    #[test]
+    fn test_init_message() {
+        let mut test_message: Vec<u8> = Vec::new();
+        let mut expected_message: Vec<u8> = Vec::new();
+
+        init_message(&mut test_message, MessageType::QueryMessage);
+
+        expected_message.push(b'Q');
+        expected_message.extend(&0_i32.to_be_bytes());
+
+        assert_eq!(
+            test_message,
+            expected_message
+        )
+    }
+
+    #[test]
+    fn test_add_bytes() {
+        let mut test_message: Vec<u8> = Vec::new();
+        let mut expected_message: Vec<u8> = Vec::new();
+
+        add_bytes(&mut test_message, "test");
+
+        expected_message.extend(b"test");
 
         assert_eq!(
             test_message,

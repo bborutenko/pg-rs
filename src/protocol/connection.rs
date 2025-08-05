@@ -1,7 +1,8 @@
 use std::{io::Result, net::TcpStream};
 use std::io::Write;
+use crate::messages::front::FrontendMessage;
 use crate::protocol::conn_params::ConnParams;
-use crate::protocol::messages::StartupMessage;
+use crate::messages::front_builder::StartupMessageBuilder;
 
 pub struct Connection {
     stream: TcpStream,
@@ -24,13 +25,12 @@ impl Connection {
      }
 
     pub fn auth(&mut self, conn_params: &ConnParams) -> Result<()>{
-        let mut buf = Buffer::new();
-        let message = buf.auth_message(
-            conn_params.user(), 
-            conn_params.database()
-        );
+        let mut message = StartupMessageBuilder::new()
+            .user(&conn_params.user())
+            .database(&conn_params.database())
+            .build();
 
-        self.stream.write_all(&message)?;
+        self.stream.write_all(message.to_vecu8())?;
         Ok(())
     }
 }
