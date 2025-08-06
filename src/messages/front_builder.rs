@@ -3,7 +3,6 @@ use super::front::{
     QueryMessage,
 };
 
-
 pub struct StartupMessageBuilder<'a> {
     user: &'a str,
     database: &'a str,

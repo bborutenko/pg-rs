@@ -1,5 +1,4 @@
-#[repr(u8)]
-pub enum MessageType {
+pub enum FrontTypes {
     QueryMessage,
 }
 
@@ -57,7 +56,7 @@ impl QueryMessage {
     pub(in crate::messages) fn new(query: &str) -> QueryMessage {
         let mut message: Vec<u8> = Vec::new(); 
 
-        init_message(&mut message, MessageType::QueryMessage);
+        init_message(&mut message, FrontTypes::QueryMessage);
 
         QueryMessage { 
             query: query.to_string(),
@@ -77,11 +76,11 @@ impl FrontendMessage for QueryMessage {
 }
 
 fn init_message(
-    mess: &mut Vec<u8>, message_type: MessageType
+    mess: &mut Vec<u8>, message_type: FrontTypes
 ) {
 
     mess.push(match message_type {
-        MessageType::QueryMessage => b'Q',
+        FrontTypes::QueryMessage => b'Q',
     });
     mess.extend(&0_i32.to_be_bytes());
 }
@@ -144,7 +143,7 @@ mod tests {
         let mut test_message: Vec<u8> = Vec::new();
         let mut expected_message: Vec<u8> = Vec::new();
 
-        init_message(&mut test_message, MessageType::QueryMessage);
+        init_message(&mut test_message, FrontTypes::QueryMessage);
 
         expected_message.push(b'Q');
         expected_message.extend(&0_i32.to_be_bytes());
