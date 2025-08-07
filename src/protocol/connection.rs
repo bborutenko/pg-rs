@@ -1,10 +1,8 @@
 use std::{io::Result, net::TcpStream};
 use std::io::Write;
-use crate::messages::back::BackTypes;
 use crate::messages::front::FrontendMessage;
 use crate::protocol::conn_params::ConnParams;
 use crate::messages::back::BackMessage;
-use crate::messages::front_builder::StartupMessageBuilder;
 
 pub struct Connection {
     stream: TcpStream,
@@ -26,12 +24,10 @@ impl Connection {
         })
      }
 
-    pub fn auth(&mut self, conn_params: &ConnParams) -> Result<BackMessage> {
-        let mut message = StartupMessageBuilder::new()
-            .user(&conn_params.user())
-            .database(&conn_params.database())
-            .build();
-
+    pub fn send_message<T: FrontendMessage>(
+        &mut self,  
+        message: &mut T
+    ) -> Result<BackMessage> {
         self.stream.write_all(message.to_vecu8())?;
         Ok(BackMessage::from_buf(&mut self.stream)?)
     }
