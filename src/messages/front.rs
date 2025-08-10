@@ -1,4 +1,5 @@
 pub enum FrontTypes {
+    StartupMessage,
     QueryMessage,
 }
 
@@ -81,6 +82,7 @@ fn init_message(
 
     mess.push(match message_type {
         FrontTypes::QueryMessage => b'Q',
+        _ => b'E',
     });
     mess.extend(&0_i32.to_be_bytes());
 }
